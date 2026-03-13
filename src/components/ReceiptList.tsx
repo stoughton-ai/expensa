@@ -272,9 +272,8 @@ export default function ReceiptList() {
             position: 'fixed', inset: 0, zIndex: 100,
             background: 'rgba(0,0,0,0.8)',
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'center',
-            overflowY: 'auto',
             padding: '1rem',
             backdropFilter: 'blur(6px)',
           }}
@@ -284,7 +283,7 @@ export default function ReceiptList() {
             onClick={e => e.stopPropagation()}
             style={{
               width: '100%', maxWidth: '520px',
-              margin: 'auto',
+              maxHeight: 'calc(100vh - 2rem)',  /* never taller than viewport */
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '20px',
@@ -318,7 +317,7 @@ export default function ReceiptList() {
             </div>
 
             {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: 'auto', maxHeight: '70vh', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
 
               {/* Big total */}
               <div style={{
