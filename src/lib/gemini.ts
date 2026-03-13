@@ -63,7 +63,7 @@ export async function extractReceiptFromImage(
   imageBase64: string,
   mimeType: string
 ): Promise<ExtractedReceipt> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const result = await model.generateContent([
     EXTRACTION_PROMPT,
@@ -85,7 +85,7 @@ export async function extractReceiptFromImage(
 }
 
 export async function extractReceiptFromText(text: string): Promise<ExtractedReceipt> {
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
   const result = await model.generateContent([
     EXTRACTION_PROMPT,

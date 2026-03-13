@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     const storagePath = `receipts/${timestamp}-${safeName}`;
 
     const { error: uploadError } = await supabase.storage
-      .from('expensa-receipts')
+      .from('receipts')
       .upload(storagePath, buffer, {
         contentType: file.type,
         upsert: false,
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: urlData } = supabase.storage
-      .from('expensa-receipts')
+      .from('receipts')
       .getPublicUrl(storagePath);
 
     const imageUrl = urlData?.publicUrl ?? null;
