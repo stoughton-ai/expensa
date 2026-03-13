@@ -1,17 +1,18 @@
 import { google } from 'googleapis';
-import { Readable } from 'stream';
 
-// Lazily initialise the Drive client so missing env vars don't crash at import time
+// Lazily initialise the Drive client using OAuth2 refresh token
 function getDriveClient() {
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
-  const key   = process.env.GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?.replace(/\\n/g, '\n');
+  const clientId     = process.env.GOOGLE_OAUTH_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
 
-  if (!email || !key) return null;
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.warn('Google Drive not configured — skipping upload');
+    return null;
+  }
 
-  const auth = new google.auth.GoogleAuth({
-    credentials: { client_email: email, private_key: key },
-    scopes: ['https://www.googleapis.com/auth/drive.file'],
-  });
+  const auth = new google.auth.OAuth2(clientId, clientSecret, 'urn:ietf:wg:oauth:2.0:oob');
+  auth.setCredentials({ refresh_token: refreshToken });
 
   return google.drive({ version: 'v3', auth });
 }
@@ -31,6 +32,8 @@ export async function uploadReceiptToDrive(
   if (!drive || !folderId) return null;
 
   try {
+    const { Readable } = await import('stream');
+
     const res = await drive.files.create({
       requestBody: {
         name: filename,
@@ -43,15 +46,8 @@ export async function uploadReceiptToDrive(
       fields: 'id, webViewLink',
     });
 
-    // Make the file viewable by anyone with the link
-    await drive.permissions.create({
-      fileId: res.data.id!,
-      requestBody: { role: 'reader', type: 'anyone' },
-    });
-
     return res.data.webViewLink ?? null;
   } catch (err) {
-    // Drive upload is non-critical — log and continue
     console.error('Google Drive upload error:', err);
     return null;
   }
