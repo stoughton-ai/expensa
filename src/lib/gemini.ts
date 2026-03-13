@@ -21,6 +21,7 @@ export const ReceiptSchema = z.object({
   payment_method: z.string().nullable(),
   receipt_number: z.string().nullable(),
   category: z.string().nullable(),
+  warranty_details: z.string().nullable(),
   notes: z.string().nullable(),
 });
 
@@ -48,6 +49,7 @@ Required JSON structure:
   "payment_method": "string or null (e.g. Cash, Visa, Mastercard)",
   "receipt_number": "string or null",
   "category": "string or null (e.g. Groceries, Restaurant, Transport, Clothing, Electronics, Healthcare, Entertainment, Other)",
+  "warranty_details": "string or null. If the receipt mentions a warranty period for any items (e.g. '3 Year Guarantee', '12 months warranty'), extract and specify which items it applies to.",
   "notes": "any additional relevant information or null"
 }
 
@@ -57,7 +59,8 @@ Rules:
 - If a value cannot be determined, use null
 - Include ALL line items visible on the receipt
 - Infer the currency from symbols (£=GBP, $=USD, €=EUR) or text
-- Infer the category from the vendor and items`;
+- Infer the category from the vendor and items
+- Look closely for warranty information on appliances, electronics, and tools`;
 
 export async function extractReceiptFromImage(
   imageBase64: string,

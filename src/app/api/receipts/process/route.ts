@@ -81,6 +81,7 @@ export async function POST(request: NextRequest) {
         payment_method: extracted.payment_method,
         receipt_number: extracted.receipt_number,
         category: extracted.category,
+        warranty_details: extracted.warranty_details,
         notes: extracted.notes,
         status: 'processed',
       })

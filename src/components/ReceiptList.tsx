@@ -25,6 +25,7 @@ interface ReceiptRecord {
   source: string;
   image_url: string | null;
   drive_url?: string | null;
+  warranty_details?: string | null;
   notes: string | null;
   created_at: string;
   status: string;
@@ -431,6 +432,24 @@ export default function ReceiptList() {
                   </h3>
                   <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
                     {selected.notes}
+                  </div>
+                </div>
+              )}
+
+              {/* Warranty Info */}
+              {selected.warranty_details && (
+                <div>
+                  <h3 style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--brand-accent)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em', paddingLeft: '0.5rem' }}>
+                    Warranty Details
+                  </h3>
+                  <div style={{
+                    padding: '1rem', background: 'rgba(99, 102, 241, 0.1)', 
+                    borderRadius: '16px', border: '1px solid rgba(99, 102, 241, 0.3)', 
+                    fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5,
+                    display: 'flex', gap: '0.75rem', alignItems: 'flex-start'
+                  }}>
+                    <Tag size={18} color="var(--brand-secondary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <p>{selected.warranty_details}</p>
                   </div>
                 </div>
               )}
