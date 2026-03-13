@@ -148,7 +148,12 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
 
   return (
     <div
-      onClick={handleClose}
+      onClick={() => {
+        // Don't close while processing — iOS fires a click on the backdrop
+        // when returning from the native camera app
+        if (step === 'processing') return;
+        handleClose();
+      }}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(0,0,0,0.85)',
@@ -168,8 +173,14 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          await processFile(file, 'camera');
-          if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
+          try {
+            await processFile(file, 'camera');
+          } catch (err) {
+            setErrorMsg(err instanceof Error ? err.message : 'Camera processing failed. Please try again.');
+            setStep('error');
+          } finally {
+            if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
+          }
         }}
       />
       <input
