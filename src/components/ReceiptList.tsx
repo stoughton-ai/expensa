@@ -272,9 +272,7 @@ export default function ReceiptList() {
             position: 'fixed', inset: 0, zIndex: 100,
             background: 'rgba(0,0,0,0.8)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem',
+            padding: '2rem 1rem', /* more padding top/bottom on desktop */
             backdropFilter: 'blur(6px)',
           }}
         >
@@ -283,7 +281,8 @@ export default function ReceiptList() {
             onClick={e => e.stopPropagation()}
             style={{
               width: '100%', maxWidth: '520px',
-              maxHeight: 'calc(100vh - 2rem)',  /* never taller than viewport */
+              margin: 'auto',     /* centers perfectly without top-clipping risk */
+              maxHeight: '100%',  /* respects the padding of the parent exactly */
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '20px',
