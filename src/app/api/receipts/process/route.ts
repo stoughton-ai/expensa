@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
-import { extractReceiptFromImage, extractReceiptFromText } from '@/lib/gemini';
+import { extractReceiptFromImage } from '@/lib/gemini';
 import { sendReceiptNotification } from '@/lib/telegram';
+import { uploadReceiptToDrive } from '@/lib/googledrive';
 
 export const maxDuration = 60; // Allow up to 60s for AI processing
 
@@ -48,7 +49,6 @@ export async function POST(request: NextRequest) {
     const isPdf = file.type === 'application/pdf';
 
     if (isPdf) {
-      // For PDFs, send the raw base64 to Gemini (it can handle PDFs)
       const base64 = buffer.toString('base64');
       extracted = await extractReceiptFromImage(base64, 'application/pdf');
     } else {
@@ -56,7 +56,14 @@ export async function POST(request: NextRequest) {
       extracted = await extractReceiptFromImage(base64, file.type as 'image/jpeg' | 'image/png' | 'image/webp');
     }
 
-    // ── 4. Insert receipt into Supabase ──────────────────────
+    // ── 4. Upload to Google Drive ─────────────────────────────
+    const vendor = extracted.vendor_name?.replace(/[^a-zA-Z0-9 ]/g, '').trim() ?? 'Receipt';
+    const date   = extracted.transaction_date ?? new Date().toISOString().slice(0, 10);
+    const ext    = file.type === 'application/pdf' ? 'pdf' : 'jpg';
+    const driveName   = `${vendor} - ${date} (${timestamp}).${ext}`;
+    const driveUrl    = await uploadReceiptToDrive(buffer, driveName, file.type);
+
+    // ── 5. Insert receipt into Supabase ──────────────────────
     const { data: receipt, error: insertError } = await supabase
       .from('receipts')
       .insert({
@@ -75,6 +82,7 @@ export async function POST(request: NextRequest) {
         category: extracted.category,
         notes: extracted.notes,
         status: 'processed',
+        drive_url: driveUrl,
       })
       .select()
       .single();
@@ -84,7 +92,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 
-    // ── 5. Insert line items ─────────────────────────────────
+    // ── 6. Insert line items ─────────────────────────────────
     if (extracted.line_items.length > 0) {
       const lineItems = extracted.line_items.map((item, idx) => ({
         receipt_id: receipt.id,
@@ -98,7 +106,7 @@ export async function POST(request: NextRequest) {
       await supabase.from('receipt_line_items').insert(lineItems);
     }
 
-    // ── 6. Send Telegram notification ────────────────────────
+    // ── 7. Send Telegram notification ────────────────────────
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     await sendReceiptNotification(extracted, receipt.id, appUrl);
 
