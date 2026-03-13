@@ -316,8 +316,10 @@ export default function ReceiptList() {
               </div>
             </div>
 
-            {/* Scrollable body */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            {/* Scrollable body — min-height:0 is required for overflow-y:auto
+                to work inside a flex column. Without it the child ignores the
+                parent's maxHeight and expands to full content height. */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
 
               {/* Big total */}
               <div style={{
