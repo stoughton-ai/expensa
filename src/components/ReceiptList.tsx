@@ -48,6 +48,7 @@ export default function ReceiptList() {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
   const [selected, setSelected] = useState<ReceiptRecord | null>(null);
+  const [receiptToDelete, setReceiptToDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const limit = 10;
 
@@ -63,11 +64,12 @@ export default function ReceiptList() {
 
   useEffect(() => { fetchReceipts(); }, [fetchReceipts]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this receipt? This cannot be undone.')) return;
+  const confirmDelete = async () => {
+    if (!receiptToDelete) return;
     setDeleting(true);
-    await fetch(`/api/receipts/${id}`, { method: 'DELETE' });
+    await fetch(`/api/receipts/${receiptToDelete}`, { method: 'DELETE' });
     setDeleting(false);
+    setReceiptToDelete(null);
     setSelected(null);
     fetchReceipts();
   };
@@ -185,7 +187,7 @@ export default function ReceiptList() {
                       <button id={`view-${r.id}`} onClick={() => setSelected(r)} className="btn-secondary" style={{ padding: '0.35rem', borderRadius: '8px' }} title="View">
                         <ExternalLink size={13} />
                       </button>
-                      <button id={`delete-${r.id}`} onClick={() => handleDelete(r.id)} className="btn-danger" style={{ padding: '0.35rem', borderRadius: '8px' }} title="Delete" disabled={deleting}>
+                      <button id={`delete-${r.id}`} onClick={() => setReceiptToDelete(r.id)} className="btn-danger" style={{ padding: '0.35rem', borderRadius: '8px' }} title="Delete" disabled={deleting || receiptToDelete === r.id}>
                         <Trash2 size={13} />
                       </button>
                     </div>
@@ -234,10 +236,10 @@ export default function ReceiptList() {
                       </span>
                       <button
                         id={`mob-delete-${r.id}`}
-                        onClick={e => { e.stopPropagation(); handleDelete(r.id); }}
+                        onClick={e => { e.stopPropagation(); setReceiptToDelete(r.id); }}
                         className="btn-danger"
                         style={{ padding: '0.25rem 0.5rem', borderRadius: '6px', fontSize: '0.7rem' }}
-                        disabled={deleting}
+                        disabled={deleting || receiptToDelete === r.id}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -460,13 +462,77 @@ export default function ReceiptList() {
                   id={`modal-delete-${selected.id}`}
                   className="btn-danger"
                   style={{ width: '100%', padding: '0.875rem', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '600' }}
-                  onClick={() => handleDelete(selected.id)}
+                  onClick={() => setReceiptToDelete(selected.id)}
                   disabled={deleting}
                 >
                   <Trash2 size={15} style={{ opacity: 0.8 }} />
                   Delete Receipt
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Delete Confirmation Modal ── */}
+      {receiptToDelete && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 110,
+            background: 'rgba(0,0,0,0.85)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '1.5rem',
+            backdropFilter: 'blur(8px)',
+            animation: 'fadeIn 0.2s ease-out',
+          }}
+          onClick={() => !deleting && setReceiptToDelete(null)}
+        >
+          <div
+            className="glass"
+            style={{
+              width: '100%', maxWidth: '340px',
+              padding: '1.5rem',
+              display: 'flex', flexDirection: 'column', gap: '1rem',
+              textAlign: 'center',
+              animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{
+              width: '48px', height: '48px', margin: '0 auto',
+              background: 'rgba(248, 113, 113, 0.15)', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--danger)', border: '1px solid rgba(248, 113, 113, 0.3)',
+            }}>
+              <Trash2 size={24} />
+            </div>
+            
+            <div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: '700', color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+                Delete Receipt?
+              </h3>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                Are you sure you want to permanently delete this receipt? This action cannot be undone.
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '1rem' }}>
+              <button
+                className="btn-secondary"
+                style={{ padding: '0.75rem', borderRadius: '12px', fontWeight: '600' }}
+                onClick={() => setReceiptToDelete(null)}
+                disabled={deleting}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn-danger"
+                style={{ padding: '0.75rem', borderRadius: '12px', fontWeight: '600', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                onClick={confirmDelete}
+                disabled={deleting}
+              >
+                {deleting ? <div className="spinner" style={{ width: '14px', height: '14px' }} /> : 'Delete'}
+              </button>
             </div>
           </div>
         </div>
