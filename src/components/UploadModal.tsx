@@ -13,7 +13,6 @@ interface UploadModalProps {
   onSuccess: () => void;
 }
 
-// Detect mobile/tablet
 function isMobileDevice() {
   if (typeof window === 'undefined') return false;
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
@@ -30,40 +29,59 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraFileInputRef = useRef<HTMLInputElement>(null); // native mobile camera
+  const cameraFileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Core processing ───────────────────────────────────────
+  const processFile = async (file: File, source: string) => {
+    setStep('processing');
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('source', source);
+
+      const res = await fetch('/api/receipts/process', { method: 'POST', body: fd });
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error ?? 'Processing failed');
+
+      const { extracted } = data;
+      const curr = extracted.currency === 'GBP' ? '£' : extracted.currency === 'EUR' ? '€' : '$';
+      setSuccessData({
+        vendor: extracted.vendor_name ?? 'Unknown vendor',
+        total: extracted.total_amount != null ? `${curr}${extracted.total_amount.toFixed(2)}` : 'Unknown',
+        category: extracted.category ?? 'Uncategorised',
+      });
+      setStep('success');
+    } catch (err) {
+      setErrorMsg(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
+      setStep('error');
+    }
+  };
 
   // ── Camera ────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
-    // On mobile: use native camera input (avoids preview mismatch)
     if (isMobileDevice()) {
+      // On mobile: trigger native camera via hidden file input
       cameraFileInputRef.current?.click();
-      return;
-    }
-    // On desktop: use in-browser stream
-    setStep('camera');
-    setCapturedImage(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
-      });
-      setCameraStream(stream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+    } else {
+      // On desktop: in-browser webcam stream
+      setStep('camera');
+      setCapturedImage(null);
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        });
+        setCameraStream(stream);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      } catch {
+        setErrorMsg('Camera access denied. Please allow camera access and try again, or upload a file instead.');
+        setStep('error');
       }
-    } catch {
-      setErrorMsg('Camera access denied. Please allow camera access and try again, or upload a file instead.');
-      setStep('error');
     }
   }, []);
-
-  // Handle native mobile camera capture (defined after processFile)
-  const handleNativeCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    await processFile(file, 'camera');
-    if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
-  };
 
   const stopCamera = useCallback(() => {
     cameraStream?.getTracks().forEach(t => t.stop());
@@ -74,7 +92,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
-
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d')?.drawImage(video, 0, 0);
@@ -118,33 +135,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     if (file) handleFile(file);
   }, [handleFile]);
 
-  // ── Core processing ───────────────────────────────────────
-  const processFile = async (file: File, source: string) => {
-    setStep('processing');
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      fd.append('source', source);
-
-      const res = await fetch('/api/receipts/process', { method: 'POST', body: fd });
-      const data = await res.json();
-
-      if (!res.ok) throw new Error(data.error ?? 'Processing failed');
-
-      const { extracted } = data;
-      const curr = extracted.currency === 'GBP' ? '£' : extracted.currency === 'EUR' ? '€' : '$';
-      setSuccessData({
-        vendor: extracted.vendor_name ?? 'Unknown vendor',
-        total: extracted.total_amount != null ? `${curr}${extracted.total_amount.toFixed(2)}` : 'Unknown',
-        category: extracted.category ?? 'Uncategorised',
-      });
-      setStep('success');
-    } catch (err) {
-      setErrorMsg(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
-      setStep('error');
-    }
-  };
-
   // ── Cleanup on close ──────────────────────────────────────
   const handleClose = () => {
     stopCamera();
@@ -167,6 +157,31 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
         backdropFilter: 'blur(8px)',
       }}
     >
+      {/* Always-rendered hidden inputs — must be outside step conditionals */}
+      <input
+        ref={cameraFileInputRef}
+        type="file"
+        id="camera-input"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={async (e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          await processFile(file, 'camera');
+          if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
+        }}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        id="file-input"
+        accept="image/jpeg,image/png,image/webp,application/pdf"
+        style={{ display: 'none' }}
+        onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+      />
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
       <div
         className="glass"
         onClick={e => e.stopPropagation()}
@@ -219,7 +234,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               How would you like to add your receipt?
             </p>
 
-            {/* Camera option */}
             <button
               id="use-camera"
               onClick={startCamera}
@@ -244,7 +258,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               </div>
             </button>
 
-            {/* Upload option */}
             <button
               id="upload-file"
               onClick={() => { setStep('upload'); }}
@@ -271,7 +284,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
           </div>
         )}
 
-        {/* ── CAMERA step ─── */}
+        {/* ── CAMERA step (desktop only) ─── */}
         {step === 'camera' && (
           <div style={{ position: 'relative', background: '#000' }}>
             {!capturedImage ? (
@@ -283,24 +296,19 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                   muted
                   style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }}
                 />
-                {/* Corner-bracket viewfinder — decorative only, doesn't crop */}
+                {/* Corner-bracket viewfinder */}
                 <div style={{
                   position: 'absolute', inset: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   pointerEvents: 'none', padding: '10%',
                 }}>
                   <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    {/* Top-left */}
                     <div style={{ position: 'absolute', top: 0, left: 0, width: 28, height: 28, borderTop: '3px solid rgba(99,102,241,0.9)', borderLeft: '3px solid rgba(99,102,241,0.9)', borderRadius: '4px 0 0 0' }} />
-                    {/* Top-right */}
                     <div style={{ position: 'absolute', top: 0, right: 0, width: 28, height: 28, borderTop: '3px solid rgba(99,102,241,0.9)', borderRight: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 4px 0 0' }} />
-                    {/* Bottom-left */}
                     <div style={{ position: 'absolute', bottom: 0, left: 0, width: 28, height: 28, borderBottom: '3px solid rgba(99,102,241,0.9)', borderLeft: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 0 0 4px' }} />
-                    {/* Bottom-right */}
                     <div style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderBottom: '3px solid rgba(99,102,241,0.9)', borderRight: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 0 4px 0' }} />
                   </div>
                 </div>
-                {/* Capture button */}
                 <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center', background: 'var(--bg-card)' }}>
                   <button
                     id="capture-photo"
@@ -315,11 +323,9 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                     title="Capture photo"
                   />
                 </div>
-                <canvas ref={canvasRef} style={{ display: 'none' }} />
               </>
             ) : (
               <>
-                {/* Preview captured image */}
                 <img src={capturedImage} alt="Captured receipt" style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }} />
                 <div style={{ padding: '1.25rem', display: 'flex', gap: '0.75rem', background: 'var(--bg-card)' }}>
                   <button id="retake-photo" className="btn-secondary" style={{ flex: 1 }} onClick={retakePhoto}>
@@ -361,24 +367,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                 Supports JPG, PNG, WEBP and PDF · Max 20MB
               </p>
             </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              id="file-input"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              style={{ display: 'none' }}
-              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-            />
-            {/* Hidden native camera input (mobile only) */}
-            <input
-              ref={cameraFileInputRef}
-              type="file"
-              id="camera-input"
-              accept="image/*"
-              capture="environment"
-              style={{ display: 'none' }}
-              onChange={handleNativeCameraCapture}
-            />
           </div>
         )}
 
@@ -399,7 +387,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
               <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
-              Sending to Telegram once done…
+              This may take a few seconds…
             </div>
           </div>
         )}
@@ -412,7 +400,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
             </div>
             <div style={{ textAlign: 'center' }}>
               <p style={{ fontWeight: '800', fontSize: '1.1rem', marginBottom: '0.3rem' }}>Receipt Saved!</p>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>A Telegram notification has been sent to your bot.</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Your receipt has been processed and saved.</p>
             </div>
             <div style={{ width: '100%', background: 'var(--bg-elevated)', borderRadius: '12px', padding: '1rem', border: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {[
