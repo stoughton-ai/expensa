@@ -283,29 +283,55 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               How would you like to add your receipt?
             </p>
 
-            <button
-              id="use-camera"
-              onClick={startCamera}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '1rem',
-                padding: '1.125rem 1.25rem',
-                background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.1))',
-                border: '1px solid rgba(99,102,241,0.3)',
-                borderRadius: '14px', cursor: 'pointer',
-                transition: 'all 0.2s',
-                textAlign: 'left',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)')}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)')}
-            >
-              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Camera size={22} color="var(--brand-secondary)" />
-              </div>
-              <div>
-                <p style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>Take a Photo</p>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Use your device camera to capture a receipt</p>
-              </div>
-            </button>
+            {/* On mobile: use <label> linked to hidden input — guaranteed to trigger
+                camera on all Android/iOS browsers without JS intermediary.
+                On desktop: use button with onClick to launch webcam stream. */}
+            {isMobileDevice() ? (
+              <label
+                htmlFor="camera-input"
+                id="use-camera"
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem',
+                  padding: '1.125rem 1.25rem',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.1))',
+                  border: '1px solid rgba(99,102,241,0.3)',
+                  borderRadius: '14px', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Camera size={22} color="var(--brand-secondary)" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>Take a Photo</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Use your device camera to capture a receipt</p>
+                </div>
+              </label>
+            ) : (
+              <button
+                id="use-camera"
+                onClick={startCamera}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '1rem',
+                  padding: '1.125rem 1.25rem',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.1))',
+                  border: '1px solid rgba(99,102,241,0.3)',
+                  borderRadius: '14px', cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  textAlign: 'left',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.6)')}
+                onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(99,102,241,0.3)')}
+              >
+                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'rgba(99,102,241,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Camera size={22} color="var(--brand-secondary)" />
+                </div>
+                <div>
+                  <p style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>Take a Photo</p>
+                  <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Use your device camera to capture a receipt</p>
+                </div>
+              </button>
+            )}
 
             <button
               id="upload-file"
