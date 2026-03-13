@@ -13,6 +13,12 @@ interface UploadModalProps {
   onSuccess: () => void;
 }
 
+// Detect mobile/tablet
+function isMobileDevice() {
+  if (typeof window === 'undefined') return false;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+}
+
 export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [step, setStep] = useState<Step>('choose');
   const [errorMsg, setErrorMsg] = useState('');
@@ -24,9 +30,16 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraFileInputRef = useRef<HTMLInputElement>(null); // native mobile camera
 
   // ── Camera ────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
+    // On mobile: use native camera input (avoids preview mismatch)
+    if (isMobileDevice()) {
+      cameraFileInputRef.current?.click();
+      return;
+    }
+    // On desktop: use in-browser stream
     setStep('camera');
     setCapturedImage(null);
     try {
@@ -43,6 +56,14 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
       setStep('error');
     }
   }, []);
+
+  // Handle native mobile camera capture (defined after processFile)
+  const handleNativeCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await processFile(file, 'camera');
+    if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
+  };
 
   const stopCamera = useCallback(() => {
     cameraStream?.getTracks().forEach(t => t.stop());
@@ -260,20 +281,24 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                   autoPlay
                   playsInline
                   muted
-                  style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'cover' }}
+                  style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }}
                 />
-                {/* Viewfinder overlay */}
+                {/* Corner-bracket viewfinder — decorative only, doesn't crop */}
                 <div style={{
                   position: 'absolute', inset: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  pointerEvents: 'none',
+                  pointerEvents: 'none', padding: '10%',
                 }}>
-                  <div style={{
-                    width: '85%', height: '70%',
-                    border: '2px solid rgba(99,102,241,0.8)',
-                    borderRadius: '12px',
-                    boxShadow: '0 0 0 9999px rgba(0,0,0,0.4)',
-                  }} />
+                  <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                    {/* Top-left */}
+                    <div style={{ position: 'absolute', top: 0, left: 0, width: 28, height: 28, borderTop: '3px solid rgba(99,102,241,0.9)', borderLeft: '3px solid rgba(99,102,241,0.9)', borderRadius: '4px 0 0 0' }} />
+                    {/* Top-right */}
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 28, height: 28, borderTop: '3px solid rgba(99,102,241,0.9)', borderRight: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 4px 0 0' }} />
+                    {/* Bottom-left */}
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: 28, height: 28, borderBottom: '3px solid rgba(99,102,241,0.9)', borderLeft: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 0 0 4px' }} />
+                    {/* Bottom-right */}
+                    <div style={{ position: 'absolute', bottom: 0, right: 0, width: 28, height: 28, borderBottom: '3px solid rgba(99,102,241,0.9)', borderRight: '3px solid rgba(99,102,241,0.9)', borderRadius: '0 0 4px 0' }} />
+                  </div>
                 </div>
                 {/* Capture button */}
                 <div style={{ padding: '1.25rem', display: 'flex', justifyContent: 'center', background: 'var(--bg-card)' }}>
@@ -343,6 +368,16 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               accept="image/jpeg,image/png,image/webp,application/pdf"
               style={{ display: 'none' }}
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+            />
+            {/* Hidden native camera input (mobile only) */}
+            <input
+              ref={cameraFileInputRef}
+              type="file"
+              id="camera-input"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleNativeCameraCapture}
             />
           </div>
         )}
