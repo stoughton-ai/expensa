@@ -56,14 +56,15 @@ export async function POST(request: NextRequest) {
       extracted = await extractReceiptFromImage(base64, file.type as 'image/jpeg' | 'image/png' | 'image/webp');
     }
 
-    // ── 4. Upload to Google Drive ─────────────────────────────
+    // ── 4. Build Drive filename (upload happens after DB save) ──
     const vendor = extracted.vendor_name?.replace(/[^a-zA-Z0-9 ]/g, '').trim() ?? 'Receipt';
     const date   = extracted.transaction_date ?? new Date().toISOString().slice(0, 10);
     const ext    = file.type === 'application/pdf' ? 'pdf' : 'jpg';
-    const driveName   = `${vendor} - ${date} (${timestamp}).${ext}`;
-    const driveUrl    = await uploadReceiptToDrive(buffer, driveName, file.type);
+    const driveName = `${vendor} - ${date} (${timestamp}).${ext}`;
 
     // ── 5. Insert receipt into Supabase ──────────────────────
+    // Note: drive_url is NOT included here — we update it after
+    // a successful Drive upload so a missing column never blocks saving.
     const { data: receipt, error: insertError } = await supabase
       .from('receipts')
       .insert({
@@ -82,7 +83,6 @@ export async function POST(request: NextRequest) {
         category: extracted.category,
         notes: extracted.notes,
         status: 'processed',
-        drive_url: driveUrl,
       })
       .select()
       .single();
@@ -102,9 +102,21 @@ export async function POST(request: NextRequest) {
         total_price: item.total_price,
         sort_order: idx,
       }));
-
       await supabase.from('receipt_line_items').insert(lineItems);
     }
+
+    // ── 7. Upload to Google Drive (non-blocking) ─────────────
+    // Run after DB save so Drive issues never prevent receipt saving.
+    uploadReceiptToDrive(buffer, driveName, file.type)
+      .then(async (driveUrl) => {
+        if (driveUrl) {
+          console.log('Drive upload success:', driveUrl);
+          await supabase.from('receipts').update({ drive_url: driveUrl }).eq('id', receipt.id);
+        } else {
+          console.warn('Drive upload returned null — check credentials/folder');
+        }
+      })
+      .catch(err => console.error('Drive upload error (non-blocking):', err));
 
     // ── 7. Send Telegram notification ────────────────────────
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';

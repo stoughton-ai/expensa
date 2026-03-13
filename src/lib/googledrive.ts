@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import { Readable } from 'stream';
 
 // Lazily initialise the Drive client using OAuth2 refresh token
 function getDriveClient() {
@@ -32,8 +33,6 @@ export async function uploadReceiptToDrive(
   if (!drive || !folderId) return null;
 
   try {
-    const { Readable } = await import('stream');
-
     const res = await drive.files.create({
       requestBody: {
         name: filename,
