@@ -82,9 +82,10 @@ export default function ReceiptList() {
   };
 
   return (
-    <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+    <>
+      <div className="fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
-      {/* ── Search & Filter bar ── */}
+        {/* ── Search & Filter bar ── */}
       <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '140px' }}>
           <Search size={14} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
@@ -263,6 +264,7 @@ export default function ReceiptList() {
           </button>
         </div>
       )}
+      </div>
 
       {/* ── Receipt Detail Modal ── */}
       {/* On mobile: slides up from bottom as a sheet; on desktop: centred modal */}
@@ -450,6 +452,6 @@ export default function ReceiptList() {
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
