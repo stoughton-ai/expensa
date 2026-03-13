@@ -418,7 +418,9 @@ export default function ReceiptList() {
                           <span style={{ lineHeight: 1.4 }}>{item.description}</span>
                         </div>
                         <span style={{ fontWeight: '600', flexShrink: 0 }}>
-                          {item.total_price != null ? `${sym(selected.currency)}${item.total_price.toFixed(2)}` : '—'}
+                          {(item.total_price ?? item.unit_price) != null 
+                            ? `${sym(selected.currency)}${(item.total_price ?? item.unit_price)!.toFixed(2)}` 
+                            : '—'}
                         </span>
                       </div>
                     ))}
