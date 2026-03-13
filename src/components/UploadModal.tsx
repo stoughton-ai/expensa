@@ -18,6 +18,43 @@ function isMobileDevice() {
   return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
 }
 
+// Compress/resize image client-side before upload
+// Samsung S24 Ultra can take 50MB+ photos — Vercel limit is 4.5MB
+async function compressImage(file: File, maxSizePx = 2048, quality = 0.85): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      let { width, height } = img;
+      // Downscale if needed
+      if (width > maxSizePx || height > maxSizePx) {
+        if (width > height) {
+          height = Math.round((height * maxSizePx) / width);
+          width = maxSizePx;
+        } else {
+          width = Math.round((width * maxSizePx) / height);
+          height = maxSizePx;
+        }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return; }
+          resolve(new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
+
 export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [step, setStep] = useState<Step>('choose');
   const [errorMsg, setErrorMsg] = useState('');
@@ -26,6 +63,9 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
+  // Synchronous ref — checked in backdrop onClick BEFORE state update propagates
+  const isProcessingRef = useRef(false);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -33,10 +73,19 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
 
   // ── Core processing ───────────────────────────────────────
   const processFile = async (file: File, source: string) => {
+    // Mark as processing synchronously (ref-based, not state-based)
+    isProcessingRef.current = true;
     setStep('processing');
+
     try {
+      // Compress images before upload (handles large phone camera files)
+      let uploadFile = file;
+      if (file.type.startsWith('image/')) {
+        uploadFile = await compressImage(file);
+      }
+
       const fd = new FormData();
-      fd.append('file', file);
+      fd.append('file', uploadFile);
       fd.append('source', source);
 
       const res = await fetch('/api/receipts/process', { method: 'POST', body: fd });
@@ -55,16 +104,16 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
       setStep('error');
+    } finally {
+      isProcessingRef.current = false;
     }
   };
 
   // ── Camera ────────────────────────────────────────────────
   const startCamera = useCallback(async () => {
     if (isMobileDevice()) {
-      // On mobile: trigger native camera via hidden file input
       cameraFileInputRef.current?.click();
     } else {
-      // On desktop: in-browser webcam stream
       setStep('camera');
       setCapturedImage(null);
       try {
@@ -95,7 +144,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     canvas.getContext('2d')?.drawImage(video, 0, 0);
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
     setCapturedImage(dataUrl);
     stopCamera();
   }, [stopCamera]);
@@ -120,8 +169,8 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
       setStep('error');
       return;
     }
-    if (file.size > 20 * 1024 * 1024) {
-      setErrorMsg('File is too large. Please upload a file under 20MB.');
+    if (file.size > 50 * 1024 * 1024) {
+      setErrorMsg('File is too large. Please upload a file under 50MB.');
       setStep('error');
       return;
     }
@@ -135,8 +184,8 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
     if (file) handleFile(file);
   }, [handleFile]);
 
-  // ── Cleanup on close ──────────────────────────────────────
   const handleClose = () => {
+    if (isProcessingRef.current) return; // never close mid-processing
     stopCamera();
     onClose();
   };
@@ -148,12 +197,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
 
   return (
     <div
-      onClick={() => {
-        // Don't close while processing — iOS fires a click on the backdrop
-        // when returning from the native camera app
-        if (step === 'processing') return;
-        handleClose();
-      }}
+      onClick={handleClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(0,0,0,0.85)',
@@ -162,7 +206,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
         backdropFilter: 'blur(8px)',
       }}
     >
-      {/* Always-rendered hidden inputs — must be outside step conditionals */}
+      {/* Always-rendered hidden inputs — outside step conditionals so ref is always valid */}
       <input
         ref={cameraFileInputRef}
         type="file"
@@ -173,14 +217,8 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
         onChange={async (e) => {
           const file = e.target.files?.[0];
           if (!file) return;
-          try {
-            await processFile(file, 'camera');
-          } catch (err) {
-            setErrorMsg(err instanceof Error ? err.message : 'Camera processing failed. Please try again.');
-            setStep('error');
-          } finally {
-            if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
-          }
+          await processFile(file, 'camera');
+          if (cameraFileInputRef.current) cameraFileInputRef.current.value = '';
         }}
       />
       <input
@@ -289,7 +327,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               </div>
               <div>
                 <p style={{ fontWeight: '700', fontSize: '0.925rem', color: 'var(--text-primary)', marginBottom: '0.2rem' }}>Upload Image or PDF</p>
-                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>JPG, PNG, WEBP or PDF — up to 20MB</p>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>JPG, PNG, WEBP or PDF — up to 50MB</p>
               </div>
             </button>
           </div>
@@ -307,7 +345,6 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                   muted
                   style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'contain', background: '#000' }}
                 />
-                {/* Corner-bracket viewfinder */}
                 <div style={{
                   position: 'absolute', inset: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -375,7 +412,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
                 {isDragging ? 'Drop it here!' : 'Drag & drop or click to browse'}
               </p>
               <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Supports JPG, PNG, WEBP and PDF · Max 20MB
+                Supports JPG, PNG, WEBP and PDF · Max 50MB
               </p>
             </div>
           </div>
@@ -394,7 +431,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
             </div>
             <div>
               <p style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '0.4rem' }}>AI is reading your receipt…</p>
-              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Extracting vendor, items, totals, and more</p>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>Compressing image and extracting data</p>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', color: 'var(--text-muted)', fontSize: '0.75rem' }}>
               <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
