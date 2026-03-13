@@ -65,6 +65,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
 
   // Synchronous ref — checked in backdrop onClick BEFORE state update propagates
   const isProcessingRef = useRef(false);
+  const cameraOpenedAtRef = useRef<number>(0); // timestamp of last camera open
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -185,7 +186,12 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
   }, [handleFile]);
 
   const handleClose = () => {
-    if (isProcessingRef.current) return; // never close mid-processing
+    if (isProcessingRef.current) return;
+    // Grace period: ignore backdrop clicks for 5s after camera was opened.
+    // Android fires a synthetic click on the backdrop when returning from camera,
+    // which arrives BEFORE onChange fires — this would close the modal prematurely.
+    const msSinceCameraOpen = Date.now() - cameraOpenedAtRef.current;
+    if (msSinceCameraOpen < 5000) return;
     stopCamera();
     onClose();
   };
@@ -290,6 +296,7 @@ export default function UploadModal({ onClose, onSuccess }: UploadModalProps) {
               <label
                 htmlFor="camera-input"
                 id="use-camera"
+                onClick={() => { cameraOpenedAtRef.current = Date.now(); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '1rem',
                   padding: '1.125rem 1.25rem',
