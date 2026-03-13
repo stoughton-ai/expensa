@@ -270,40 +270,39 @@ export default function ReceiptList() {
           onClick={() => setSelected(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 100,
-            background: 'rgba(0,0,0,0.75)',
+            background: 'rgba(0,0,0,0.8)',
             display: 'flex',
-            alignItems: 'flex-end',        /* mobile: bottom sheet */
+            alignItems: 'center',
             justifyContent: 'center',
-            backdropFilter: 'blur(4px)',
+            padding: '1rem',
+            backdropFilter: 'blur(6px)',
           }}
         >
           <div
-            className="glass detail-sheet"
+            className="glass"
             onClick={e => e.stopPropagation()}
             style={{
-              width: '100%', maxWidth: '560px',
-              maxHeight: '92vh',
-              overflow: 'auto',
-              borderRadius: '20px 20px 0 0',  /* mobile: sheet style */
-              padding: '0',
+              width: '100%', maxWidth: '520px',
+              maxHeight: '88vh',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '20px',
+              overflow: 'hidden',
             }}
           >
-            {/* Sheet handle + header */}
+            {/* Sticky header */}
             <div style={{
-              position: 'sticky', top: 0, zIndex: 1,
+              flexShrink: 0,
               background: 'var(--bg-card)',
               borderBottom: '1px solid var(--border)',
               padding: '1rem 1.25rem',
-              borderRadius: '20px 20px 0 0',
             }}>
-              {/* Drag handle (mobile feel) */}
-              <div style={{ width: '36px', height: '4px', background: 'var(--border-strong)', borderRadius: '2px', margin: '0 auto 0.875rem' }} />
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0, paddingRight: '1rem' }}>
-                  <h2 style={{ fontSize: '1.1rem', fontWeight: '800', marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <h2 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {selected.vendor_name ?? 'Receipt Details'}
                   </h2>
-                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
                     {formatDate(selected.transaction_date)} · via {selected.source}
                   </p>
                 </div>
@@ -316,13 +315,14 @@ export default function ReceiptList() {
               </div>
             </div>
 
-            <div style={{ padding: '1.25rem' }}>
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
 
               {/* Big total */}
               <div style={{
                 textAlign: 'center', padding: '1.25rem',
                 background: `${color(selected)}15`, borderRadius: '14px',
-                border: `1px solid ${color(selected)}30`, marginBottom: '1rem',
+                border: `1px solid ${color(selected)}30`,
               }}>
                 <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Total Amount</p>
                 <p style={{ fontSize: '2rem', fontWeight: '800', color: color(selected) }}>
@@ -331,7 +331,7 @@ export default function ReceiptList() {
               </div>
 
               {/* Details grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
                 {[
                   { label: 'Tax', value: selected.tax_amount != null ? `${sym(selected.currency)}${selected.tax_amount.toFixed(2)}` : '—', icon: <Tag size={12} /> },
                   { label: 'Payment', value: selected.payment_method ?? '—', icon: <CreditCard size={12} /> },
@@ -350,7 +350,7 @@ export default function ReceiptList() {
 
               {/* Line items */}
               {selected.receipt_line_items.length > 0 && (
-                <div style={{ marginBottom: '1rem' }}>
+                <div>
                   <p style={{ fontSize: '0.68rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
                     Line Items ({selected.receipt_line_items.length})
                   </p>
@@ -375,7 +375,7 @@ export default function ReceiptList() {
               )}
 
               {selected.notes && (
-                <div style={{ marginBottom: '1rem', padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                <div style={{ padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: '10px', border: '1px solid var(--border)' }}>
                   <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Notes</p>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{selected.notes}</p>
                 </div>
