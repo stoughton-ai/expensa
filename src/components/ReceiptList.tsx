@@ -24,6 +24,7 @@ interface ReceiptRecord {
   subtotal: number | null;
   source: string;
   image_url: string | null;
+  drive_url?: string | null;
   notes: string | null;
   created_at: string;
   status: string;
@@ -274,99 +275,143 @@ export default function ReceiptList() {
             display: 'flex',
             padding: '2rem 1rem', /* more padding top/bottom on desktop */
             backdropFilter: 'blur(6px)',
+            animation: 'fadeIn 0.2s ease-out',
           }}
         >
           <div
             className="glass"
             onClick={e => e.stopPropagation()}
             style={{
-              width: '100%', maxWidth: '520px',
-              margin: 'auto',     /* centers perfectly without top-clipping risk */
-              maxHeight: '100%',  /* respects the padding of the parent exactly */
+              width: '100%', maxWidth: '440px', // thinner for an elegant app flow
+              margin: 'auto',
+              maxHeight: '100%',
               display: 'flex',
               flexDirection: 'column',
-              borderRadius: '20px',
+              borderRadius: '24px',
               overflow: 'hidden',
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)',
+              border: '1px solid var(--border)',
+              animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
           >
 
-            {/* Sticky header */}
+            {/* Premium Header Container */}
             <div style={{
               flexShrink: 0,
-              background: 'var(--bg-card)',
+              background: `linear-gradient(to bottom, ${color(selected)}18, var(--bg-card))`,
+              padding: '2.5rem 1.5rem 1.5rem',
+              position: 'relative',
+              textAlign: 'center',
               borderBottom: '1px solid var(--border)',
-              padding: '1rem 1.25rem',
             }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1, minWidth: 0, paddingRight: '1rem' }}>
-                  <h2 style={{ fontSize: '1.05rem', fontWeight: '800', marginBottom: '0.2rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {selected.vendor_name ?? 'Receipt Details'}
-                  </h2>
-                  <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    {formatDate(selected.transaction_date)} · via {selected.source}
-                  </p>
-                </div>
-                <button
-                  onClick={() => setSelected(null)}
-                  style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-                >
-                  <X size={16} color="var(--text-secondary)" />
-                </button>
-              </div>
-            </div>
+              {/* Close Button */}
+              <button
+                onClick={() => setSelected(null)}
+                style={{
+                  position: 'absolute', top: '1rem', right: '1rem',
+                  background: 'var(--bg-elevated)', border: '1px solid var(--border-strong)', borderRadius: '50%',
+                  width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: 'var(--text-secondary)', transition: 'background 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+              >
+                <X size={15} />
+              </button>
 
-            {/* Scrollable body — min-height:0 is required for overflow-y:auto
-                to work inside a flex column. Without it the child ignores the
-                parent's maxHeight and expands to full content height. */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-
-              {/* Big total */}
+              {/* Category Icon / Logo */}
               <div style={{
-                textAlign: 'center', padding: '1.25rem',
-                background: `${color(selected)}15`, borderRadius: '14px',
-                border: `1px solid ${color(selected)}30`,
+                width: '64px', height: '64px', borderRadius: '20px',
+                background: `${color(selected)}20`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                margin: '0 auto 1.25rem',
+                border: `1px solid ${color(selected)}40`,
+                boxShadow: `0 8px 16px -4px ${color(selected)}20`
               }}>
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>Total Amount</p>
-                <p style={{ fontSize: '2rem', fontWeight: '800', color: color(selected) }}>
+                <Receipt size={28} color={color(selected)} />
+              </div>
+
+              <h2 style={{ fontSize: '1.4rem', fontWeight: '800', marginBottom: '0.25rem', color: 'var(--text-primary)', lineHeight: 1.2 }}>
+                {selected.vendor_name ?? 'Unknown Vendor'}
+              </h2>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                {formatDate(selected.transaction_date)} &middot; {selected.category ?? 'Uncategorised'}
+              </p>
+
+              <div style={{ marginTop: '1.5rem' }}>
+                <p style={{ fontSize: '3rem', fontWeight: '800', color: color(selected), letterSpacing: '-0.03em', lineHeight: 1 }}>
                   {sym(selected.currency)}{(selected.total_amount ?? 0).toFixed(2)}
                 </p>
               </div>
+            </div>
 
-              {/* Details grid */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.625rem' }}>
-                {[
-                  { label: 'Tax', value: selected.tax_amount != null ? `${sym(selected.currency)}${selected.tax_amount.toFixed(2)}` : '—', icon: <Tag size={12} /> },
-                  { label: 'Payment', value: selected.payment_method ?? '—', icon: <CreditCard size={12} /> },
-                  { label: 'Category', value: selected.category ?? 'Uncategorised', icon: <Tag size={12} /> },
-                  { label: 'Receipt #', value: selected.receipt_number ?? '—', icon: <Receipt size={12} /> },
-                ].map(({ label, value, icon }) => (
-                  <div key={label} style={{ background: 'var(--bg-elevated)', padding: '0.75rem', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginBottom: '0.25rem', color: 'var(--text-muted)' }}>
-                      {icon}
-                      <p style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</p>
+            {/* Scrollable body */}
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', background: 'var(--bg)' }}>
+              
+              {/* Receipt Image Button */}
+              {(selected.drive_url || selected.image_url) && (
+                <a
+                  href={selected.drive_url || selected.image_url!}
+                  target="_blank" rel="noreferrer"
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    padding: '0.875rem', background: 'var(--bg-elevated)', borderRadius: '14px',
+                    color: 'var(--text-primary)', fontSize: '0.85rem', fontWeight: '600',
+                    textDecoration: 'none', border: '1px solid var(--border)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)', transition: 'transform 0.1s'
+                  }}
+                  onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+                  onMouseUp={e => e.currentTarget.style.transform = 'none'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'none'}
+                >
+                  <ExternalLink size={16} color="var(--text-secondary)" />
+                  View Original Receipt
+                </a>
+              )}
+
+              {/* Transactions Details (List Style) */}
+              <div>
+                <h3 style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em', paddingLeft: '0.5rem' }}>
+                  Transaction Details
+                </h3>
+                <div style={{ background: 'var(--bg-elevated)', borderRadius: '16px', padding: '0.5rem 1rem', border: '1px solid var(--border)' }}>
+                  {[
+                    { label: 'Tax Amount', value: selected.tax_amount != null && selected.tax_amount > 0 ? `${sym(selected.currency)}${selected.tax_amount.toFixed(2)}` : '—' },
+                    { label: 'Payment Method', value: selected.payment_method ?? '—' },
+                    { label: 'Receipt #', value: selected.receipt_number ?? '—' },
+                    { label: 'Source', value: selected.source },
+                  ].map((row, i, arr) => (
+                    <div key={row.label} style={{
+                      display: 'flex', justifyContent: 'space-between', padding: '0.875rem 0',
+                      borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border)',
+                      fontSize: '0.85rem'
+                    }}>
+                      <span style={{ color: 'var(--text-muted)' }}>{row.label}</span>
+                      <span style={{ fontWeight: '600', color: 'var(--text-primary)' }}>{row.value}</span>
                     </div>
-                    <p style={{ fontSize: '0.875rem', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</p>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
 
               {/* Line items */}
               {selected.receipt_line_items.length > 0 && (
                 <div>
-                  <p style={{ fontSize: '0.68rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                    Line Items ({selected.receipt_line_items.length})
-                  </p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {selected.receipt_line_items.map(item => (
+                  <h3 style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em', paddingLeft: '0.5rem' }}>
+                    Purchases
+                  </h3>
+                  <div style={{ background: 'var(--bg-elevated)', borderRadius: '16px', padding: '0.5rem 1rem', border: '1px solid var(--border)' }}>
+                    {selected.receipt_line_items.map((item, i, arr) => (
                       <div key={item.id} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '0.6rem 0.75rem', background: 'var(--bg-elevated)',
-                        borderRadius: '8px', border: '1px solid var(--border)',
-                        fontSize: '0.82rem', gap: '0.5rem',
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', padding: '0.875rem 0',
+                        borderBottom: i === arr.length - 1 ? 'none' : '1px solid var(--border)',
+                        fontSize: '0.85rem', gap: '1rem'
                       }}>
-                        <span style={{ color: 'var(--text-primary)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                          {item.quantity && item.quantity !== 1 ? `${item.quantity}× ` : ''}{item.description}
-                        </span>
+                        <div style={{ display: 'flex', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                          {item.quantity && item.quantity !== 1 && (
+                            <span style={{ color: 'var(--text-muted)', fontWeight: '500' }}>{item.quantity}×</span>
+                          )}
+                          <span style={{ lineHeight: 1.4 }}>{item.description}</span>
+                        </div>
                         <span style={{ fontWeight: '600', flexShrink: 0 }}>
                           {item.total_price != null ? `${sym(selected.currency)}${item.total_price.toFixed(2)}` : '—'}
                         </span>
@@ -376,23 +421,31 @@ export default function ReceiptList() {
                 </div>
               )}
 
+              {/* Notes */}
               {selected.notes && (
-                <div style={{ padding: '0.75rem', background: 'var(--bg-elevated)', borderRadius: '10px', border: '1px solid var(--border)' }}>
-                  <p style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginBottom: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Notes</p>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{selected.notes}</p>
+                <div>
+                  <h3 style={{ fontSize: '0.75rem', fontWeight: '700', color: 'var(--text-muted)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.06em', paddingLeft: '0.5rem' }}>
+                    Notes
+                  </h3>
+                  <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderRadius: '16px', border: '1px solid var(--border)', fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: 1.5 }}>
+                    {selected.notes}
+                  </div>
                 </div>
               )}
 
-              <button
-                id={`modal-delete-${selected.id}`}
-                className="btn-danger"
-                style={{ width: '100%' }}
-                onClick={() => handleDelete(selected.id)}
-                disabled={deleting}
-              >
-                <Trash2 size={14} />
-                Delete Receipt
-              </button>
+              {/* Actions */}
+              <div style={{ marginTop: 'auto', paddingTop: '0.5rem' }}>
+                <button
+                  id={`modal-delete-${selected.id}`}
+                  className="btn-danger"
+                  style={{ width: '100%', padding: '0.875rem', borderRadius: '14px', fontSize: '0.85rem', fontWeight: '600' }}
+                  onClick={() => handleDelete(selected.id)}
+                  disabled={deleting}
+                >
+                  <Trash2 size={15} style={{ opacity: 0.8 }} />
+                  Delete Receipt
+                </button>
+              </div>
             </div>
           </div>
         </div>
