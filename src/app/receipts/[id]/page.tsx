@@ -5,11 +5,18 @@ export const metadata: Metadata = {
   title: 'Receipt Details — Expensa',
 };
 
+import { createServiceClient } from '@/lib/supabase';
+
 async function getReceipt(id: string) {
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
-  const res = await fetch(`${baseUrl}/api/receipts/${id}`, { cache: 'no-store' });
-  if (!res.ok) return null;
-  return res.json();
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from('receipts')
+    .select('*, receipt_line_items(*)')
+    .eq('id', id)
+    .single();
+
+  if (error || !data) return null;
+  return data;
 }
 
 export default async function ReceiptPage({ params }: { params: Promise<{ id: string }> }) {

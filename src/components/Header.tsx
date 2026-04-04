@@ -1,12 +1,15 @@
 'use client';
 
-import { Scan, Plus } from 'lucide-react';
+import { Scan, Plus, LogOut } from 'lucide-react';
+import { useSession, signOut } from 'next-auth/react';
 
 interface HeaderProps {
   onAddReceipt: () => void;
 }
 
 export default function Header({ onAddReceipt }: HeaderProps) {
+  const { data: session } = useSession();
+
   return (
     <header style={{
       background: 'var(--bg-surface)',
@@ -52,15 +55,63 @@ export default function Header({ onAddReceipt }: HeaderProps) {
         </div>
       </div>
 
-      {/* Add Receipt button (desktop) */}
-      <button
-        id="header-add-receipt"
-        className="btn-primary hide-mobile"
-        onClick={onAddReceipt}
-      >
-        <Plus size={16} />
-        Add Receipt
-      </button>
+      {/* Right side — Add Receipt + Profile */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <button
+          id="header-add-receipt"
+          className="btn-primary hide-mobile"
+          onClick={onAddReceipt}
+        >
+          <Plus size={16} />
+          Add Receipt
+        </button>
+
+        {session?.user && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            {session.user.image && (
+              <img
+                src={session.user.image}
+                alt={session.user.name || 'Profile'}
+                referrerPolicy="no-referrer"
+                style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  border: '2px solid var(--border)',
+                  objectFit: 'cover',
+                }}
+              />
+            )}
+            <button
+              id="sign-out-btn"
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              title="Sign out"
+              style={{
+                background: 'none',
+                border: '1px solid var(--border)',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                padding: '0.375rem',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#ef4444';
+                e.currentTarget.style.color = '#ef4444';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)';
+                e.currentTarget.style.color = 'var(--text-secondary)';
+              }}
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
+      </div>
     </header>
   );
 }

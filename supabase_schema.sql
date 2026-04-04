@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   source VARCHAR(20) NOT NULL DEFAULT 'upload', -- 'camera', 'upload', 'pdf', 'email'
   original_filename TEXT,
   image_url TEXT,           -- Supabase Storage URL
+  drive_url TEXT,           -- Google Drive Link
 
   -- AI Extracted data
   vendor_name TEXT,
@@ -25,6 +26,7 @@ CREATE TABLE IF NOT EXISTS receipts (
   payment_method VARCHAR(50),
   receipt_number TEXT,
   category VARCHAR(100),
+  warranty_details TEXT,
   notes TEXT,
 
   -- Status
@@ -63,3 +65,19 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER receipts_updated_at
   BEFORE UPDATE ON receipts
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+
+-- ============================================================
+-- SECURITY — Row Level Security (RLS)
+-- ============================================================
+
+-- 1. Enable RLS on both tables
+ALTER TABLE receipts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE receipt_line_items ENABLE ROW LEVEL SECURITY;
+
+-- 2. Define Policies
+-- We primarily use the service_role key server-side, which bypasses RLS.
+-- Enabling RLS without policies blocks all public 'anon' access.
+
+-- Grant access to authenticated users if we ever use browser-side client
+-- But for now, we leave it locked to keep it secure as per Supabase warning.
+

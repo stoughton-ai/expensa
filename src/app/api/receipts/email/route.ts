@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       const storagePath = `receipts/email-${timestamp}-${safeName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('expensa-receipts')
+        .from('receipts')
         .upload(storagePath, buffer, {
           contentType: receiptAttachment.mimeType,
           upsert: false,
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
 
       if (!uploadError) {
         const { data: urlData } = supabase.storage
-          .from('expensa-receipts')
+          .from('receipts')
           .getPublicUrl(storagePath);
         imageUrl = urlData?.publicUrl ?? null;
       }
