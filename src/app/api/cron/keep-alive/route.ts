@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * Supabase Keep-Alive Cron
  * Runs daily to prevent free-tier project pausing due to inactivity.
