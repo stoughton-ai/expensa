@@ -21,17 +21,21 @@ export async function GET(request: Request) {
   try {
     const supabase = createServiceClient();
 
-    // Lightweight query — just count rows, costs almost nothing
-    const { count, error } = await supabase
+    // Perform a lightweight GET query to ensure the database compute is actually touched
+    // A HEAD request might hit the PostgREST cache and not count as sufficient activity
+    const { data, error } = await supabase
       .from('receipts')
-      .select('id', { count: 'exact', head: true });
+      .select('id')
+      .limit(1);
 
     if (error) throw error;
+
+    console.log('[keep-alive] Successfully pinged Supabase DB at', new Date().toISOString());
 
     return NextResponse.json({
       ok: true,
       message: 'Keep-alive ping successful',
-      receipts_count: count,
+      data_found: data && data.length > 0,
       timestamp: new Date().toISOString(),
     });
   } catch (err: unknown) {
