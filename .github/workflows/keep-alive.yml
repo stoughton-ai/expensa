@@ -1,0 +1,53 @@
+name: Supabase Keep-Alive
+
+# Prevents the free-tier Supabase project from being paused due to inactivity.
+# Runs every 4 days (well within the 7-day pause window) and pings the database
+# directly via the Supabase REST API. GitHub Actions will email you if this fails.
+
+on:
+  schedule:
+    # Every 4 days at 09:00 UTC (08:00, 12th, 16th, 20th, 24th, 28th of each month)
+    - cron: '0 9 */4 * *'
+  workflow_dispatch: # Manual trigger button in GitHub Actions UI
+
+jobs:
+  ping-supabase:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase Database (Direct REST API)
+        run: |
+          echo "🏓 Pinging Supabase database at $(date -u)..."
+          response=$(curl -sf \
+            "${{ secrets.SUPABASE_URL }}/rest/v1/receipts?select=id&limit=1" \
+            -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}" \
+            -w "\nHTTP_STATUS:%{http_code}")
+
+          http_status=$(echo "$response" | grep "HTTP_STATUS" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_STATUS")
+
+          if [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
+            echo "✅ Direct Supabase ping successful (HTTP $http_status)"
+            echo "Response: $body"
+          else
+            echo "❌ Direct Supabase ping failed (HTTP $http_status)"
+            echo "Response: $body"
+            exit 1
+          fi
+
+      - name: Ping Vercel Keep-Alive Endpoint (Secondary)
+        run: |
+          echo "🏓 Pinging Vercel keep-alive endpoint..."
+          response=$(curl -sf "${{ secrets.APP_URL }}/api/cron/keep-alive?ping=true" \
+            -w "\nHTTP_STATUS:%{http_code}" || true)
+
+          http_status=$(echo "$response" | grep "HTTP_STATUS" | cut -d: -f2)
+          body=$(echo "$response" | grep -v "HTTP_STATUS")
+
+          if [ -n "$http_status" ] && [ "$http_status" -ge 200 ] && [ "$http_status" -lt 300 ]; then
+            echo "✅ Vercel endpoint ping successful (HTTP $http_status)"
+            echo "Response: $body"
+          else
+            echo "⚠️  Vercel endpoint unreachable or returned error (non-critical)"
+            echo "The direct Supabase ping above is what matters for preventing pausing."
+          fi

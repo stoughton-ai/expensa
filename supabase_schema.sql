@@ -67,6 +67,23 @@ CREATE TRIGGER receipts_updated_at
   FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
+-- KEEP-ALIVE HEARTBEAT — Tracks keep-alive pings
+-- Run this once in the Supabase SQL Editor to create the table
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS _heartbeat (
+  id INT PRIMARY KEY DEFAULT 1,
+  last_ping TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  source TEXT,                    -- 'vercel_cron', 'github_actions', 'apps_script', 'manual'
+  ping_count BIGINT DEFAULT 0
+);
+
+-- Seed the initial row
+INSERT INTO _heartbeat (id, last_ping, source)
+VALUES (1, NOW(), 'init')
+ON CONFLICT (id) DO NOTHING;
+
+-- ============================================================
 -- SECURITY — Row Level Security (RLS)
 -- ============================================================
 
